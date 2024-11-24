@@ -39,7 +39,7 @@ Có thể kiểm tra bằng các lệnh sau nếu chưa chắc chắn:
 `https://atyn41clp4.execute-api.ap-southeast-1.amazonaws.com/dev/link/jDdfskaJKJ8f9d`
 
 ## Xoá resource bằng cách xoá CloudFormation stack trên console hoặc sd lệnh sau
-`sam delete --stack-name shorten-link-backend`
+`sam delete --stack-name url-shorten-app`
 
 ## Thông tin thêm: sử dụng SAM để test API ở local.
 `sam local start-api`
