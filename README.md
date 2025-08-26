@@ -1,4 +1,4 @@
-## Shorten link backcend
+## Shorten link backend
 Project này là một ứng dụng backend có nhiệm vụ tạo link rút gọn từ một link cho trước.  
 Techstack sử dụng: APIgateway, lambda, DynamoDB.  
 Tổ chức project sử dụng Serverless Application Model - SAM.  
