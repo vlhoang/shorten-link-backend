@@ -16,55 +16,101 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
     name: 'Standard_LRS'
   }
   kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
+    dnsEndpointType: 'Standard'
+    minimumTlsVersion: 'TLS1_2'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Allow'
+    }
+    publicNetworkAccess: 'Enabled'
+  }
+  resource blobServices 'blobServices' = {
+    name: 'default'
+    properties: {
+      deleteRetentionPolicy: {}
+    }
+    resource deploymentContainer 'containers' = {
+      name: 'deployment'
+      properties: {
+        publicAccess: 'None'
+      }
+    }
+  }
 }
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: 'shortenlinkplan'
   location: location
+  kind: 'functionapp'
   sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
+    tier: 'FlexConsumption'
+    name: 'FC1'
+  }
+  properties: {
+    reserved: true
   }
 }
 
-resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
+
+resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
-  kind: 'functionapp'
+  kind: 'functionapp,linux'
   identity: {
     type: 'SystemAssigned'
-  }
+    }
   properties: {
     serverFarmId: appServicePlan.id
-    siteConfig: {
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: storageAccount.properties.primaryEndpoints.blob
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'python'
-        }
-        {
-          name: 'COSMOS_ENDPOINT'
-          value: cosmosDbAccount.properties.documentEndpoint
-        }
-        {
-          name: 'COSMOS_KEY'
-          value: listKeys(cosmosDbAccount.id, cosmosDbAccount.apiVersion).primaryMasterKey
-        }
-        {
-          name: 'COSMOS_DB'
-          value: cosmosDbDatabaseName
-        }
-        {
-          name: 'COSMOS_CONTAINER'
-          value: cosmosDbContainerName
-        }
-      ]
-    }
     httpsOnly: true
+    siteConfig: {
+      minTlsVersion: '1.2'
+    }
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${storageAccount.properties.primaryEndpoints.blob}deployment'
+          authentication: {
+            type: 'SystemAssignedIdentity'
+          }
+        }
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: 40
+        instanceMemoryMB: 512
+      }
+      runtime: { 
+        name: 'python'
+        version: '3.12'
+      }
+    }
+  }
+  resource configAppSettings 'config' = {
+    name: 'appsettings'
+    properties: {
+        AzureWebJobsStorage__accountName: storageAccount.name
+        COSMOS_ENDPOINT: cosmosDbAccount.properties.documentEndpoint
+        COSMOS_KEY: listKeys(cosmosDbAccount.id, cosmosDbAccount.apiVersion).primaryMasterKey
+        COSMOS_DB: cosmosDbDatabaseName
+        COSMOS_CONTAINER: cosmosDbContainerName
+      }
+  }
+}
+
+// Role Assignment for Blob Data Contributor
+resource blobContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionApp.id, 'storage-contributor')
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      'b24988ac-6180-42a0-ab88-20f7382dd24c' // Contributor
+    )
+    principalId: functionApp.identity.principalId
   }
 }
 
@@ -141,9 +187,9 @@ resource apimApi 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
       'https'
     ]
     apiRevision: '1'
-    serviceUrl: 'https://${functionAppHostname}'
-    format: 'swagger-link-json'
-    value: 'https://${functionAppHostname}/api/swagger.json' // If you have OpenAPI spec published
+    serviceUrl: 'https://${functionAppHostname}/api'
+    // format: 'swagger-link-json'
+    // value: 'https://${functionAppHostname}/api/swagger.json' // If you have OpenAPI spec published
   }
   dependsOn: [
     apiManagement
@@ -153,7 +199,7 @@ resource apimApi 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
 
 // Operation: POST /generate-short-url
 resource apimApiGenerateShortUrl 'Microsoft.ApiManagement/service/apis/operations@2022-08-01' = {
-  name: '${apiManagement.name}/${apimApi.name}/generate-short-url'
+  name: '${apiManagement.name}/${apiName}/generate-short-url'
   properties: {
     displayName: 'Generate Short URL'
     method: 'POST'
@@ -200,11 +246,19 @@ resource apimApiGenerateShortUrl 'Microsoft.ApiManagement/service/apis/operation
 
 // Operation: GET /link/{short_url}
 resource apimApiGetUrl 'Microsoft.ApiManagement/service/apis/operations@2022-08-01' = {
-  name: '${apiManagement.name}/${apimApi.name}/get-url'
+  name: '${apiManagement.name}/${apiName}/get-url'
   properties: {
     displayName: 'Get Original URL'
     method: 'GET'
     urlTemplate: '/link/{short_url}'
+    templateParameters: [
+      {
+        name: 'short_url'
+        required: true
+        type: 'string'
+        description: 'The short URL code'
+      }
+    ]
     request: {
       queryParameters: []
       headers: []

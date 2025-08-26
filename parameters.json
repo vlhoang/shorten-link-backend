@@ -1,6 +1,0 @@
-{
-  "functionAppName": { "value": "hvlinhslinkbe" },
-  "storageAccountName": { "value": "hvlinhwebjobsa" },
-  "cosmosDbAccountName": { "value": "hvlinhslinkdb" },
-  "apiManagementName": { "value": "hvlinhslinkapim" }
-}
