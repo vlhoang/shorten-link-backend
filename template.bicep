@@ -187,6 +187,7 @@ resource apimApi 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
       'https'
     ]
     apiRevision: '1'
+    subscriptionRequired: false
     serviceUrl: 'https://${functionAppHostname}/api'
     // format: 'swagger-link-json'
     // value: 'https://${functionAppHostname}/api/swagger.json' // If you have OpenAPI spec published

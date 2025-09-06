@@ -4,31 +4,38 @@ Techstack sử dụng: APIgateway, lambda, DynamoDB.
 Tổ chức project sử dụng Serverless Application Model - SAM.  
 Cấu trúc API:  
 * `/api/generate-short-url` có nhiệm vụ nhận vào một URL và trả ra ID rút gọn của URL đó.
-* `/link/<id>` với id là mã rút gọn của link gốc, có nhiệm vụ tìm kiếm ID trong DynamoDB Table, nếu match sẽ trả ra link gốc đồng thời thông báo cho trình duyệt điều hướng người dùng sang link đó.
+* `/api/link/<id>` với id là mã rút gọn của link gốc, có nhiệm vụ tìm kiếm ID trong DynamoDB Table, nếu match sẽ trả ra link gốc đồng thời thông báo cho trình duyệt điều hướng người dùng sang link đó.
 
 ## Yêu cầu: 
-* Máy tính cài sẵn SAM CLI và AWS CLI
+* Máy tính cài sẵn azure function core tools và Azure CLI
 * Windows/Mac/Linux:
-https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
+https://learn.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest
+https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Cisolated-process%2Cnode-v4%2Cpython-v2%2Chttp-trigger%2Ccontainer-apps&pivots=programming-language-python
+
 * Cài sẵn python 3.13
 
 Có thể kiểm tra bằng các lệnh sau nếu chưa chắc chắn:
 * `python --version`  
-* `sam --version`  
-* `aws --version`
+* `az --version`  
+* `func --version`
 
 ## Các bước triển khai
-1. Chuẩn bị access key tại local cho AWS CLI, có thể kiểm tra lại bằng lệnh sau:
-* `aws sts get-caller-identity`
+1. Đăng nhập vào Azure CLI bằng lệnh sau:
+* `az login`
 
-2. Build application
-* `sam build`
+2. Tạo resource group trên Azure, đặt tên là `shorten-link-app-rg` (tạo trên portal hoặc CLI)
 
-3. Deploy ứng dụng.
-`sam deploy --guided`
+3. Deploy hạ tầng trên Azure bằng bicep
+* `az deployment group create --resource-group shorten-link-app-rg --template-file template.bicep`
+
+Tên các resource đang là random, nếu muốn tự đặt tên, sử dụng file parameter.bicepparam (lưu ý đặt tên unique global), sau đó thêm tham số template vào câu lệnh deploy
+`--parameters parameters.bicepparam`
+
+4. Deploy ứng dụng lên azure function, thay tên function app của bạn vào lệnh:
+`func azure functionapp publish <function app name> --python`
 
 4. Kiểm tra resource trên console, thử access API bằng postman.
-* Url (sample): `https://atyn41clp4.execute-api.ap-southeast-1.amazonaws.com/dev/generate-short-url`
+* Url (sample): `https://hvlinhslinkapim.azure-api.net/api/generate-short-url`
 * Body (sample):
 ```
 {
@@ -36,12 +43,8 @@ Có thể kiểm tra bằng các lệnh sau nếu chưa chắc chắn:
 }
 ```
 * Truy cập thử link rút gọn (sample):
-`https://atyn41clp4.execute-api.ap-southeast-1.amazonaws.com/dev/link/jDdfskaJKJ8f9d`
+`https://hvlinhslinkapim.azure-api.net/api/link/jDdfskaJKJ8f9d`
 
-## Xoá resource bằng cách xoá CloudFormation stack trên console hoặc sd lệnh sau
-`sam delete --stack-name url-shorten-app`
-
-## Thông tin thêm: sử dụng SAM để test API ở local.
-`sam local start-api`
+## Xoá resource bằng cách xoá resource group shorten-link-app-rg bằng portal hoặc bằng lệnh
 
 ## Chúc các bạn deploy thành công!
